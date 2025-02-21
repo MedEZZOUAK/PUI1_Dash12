@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/fontawesome/fontawesome-free-6.4.2-web/css/all.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/jquery.dataTables.min.css') }}">
+  <style>
+    :root {
+      --info-color: #86e5f8;
+      --error-color: #ff6b6b;
+      --fatal-color: #4f05fc;
+    }
+    body {
+      font-family: "Inter", sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-card {
+      background: #000000;
+      padding: 0.5rem;
+      border-radius: 0.75rem;
+      border: 1px solid #333;
+      text-align: center;
+    }
+
+    .stat-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: #a7b7cc;
+    }
+
+    .stat-value {
+      font-size: 2.25rem;
+      font-weight: 600;
+    }
+
+    .info .stat-value {
+      color: var(--info-color);
+    }
+
+    .error .stat-value {
+      color: var(--error-color);
+    }
+
+    .fatal .stat-value {
+      color: var(--fatal-color);
+    }
+
+    .vehicle-stats {
+      background: #000000;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      margin-bottom: 0.25rem;
+      border: 1px solid #333;
+    }
+
+    .total-vehicles,
+    .hour-vehicles {
+      font-size: 1.5rem;
+      color: #4caf50;
+      margin-bottom: 1rem;
+    }
+
+    .last-detection {
+      color: white;
+      font-size: 2.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    #timer {
+      color: #4caf50;
+      font-weight: bold;
+    }
+
+    .logs-section {
+      background: #000000;
+      border-radius: 0.75rem;
+      border: 1px solid #333;
+      margin-bottom: 2rem;
+    }
+
+    .log-type {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .log-type.info {
+      color: var(--info-color);
+    }
+
+    .log-type.error {
+      color: var(--error-color);
+    }
+
+    .log-type.fatal {
+      color: var(--fatal-color);
+    }
+
+    .dataTables_wrapper {
+      margin-top: 1rem;
+      color: #ffffff;
+    }
+
+    .dataTables_filter input,
+    .dataTables_length select {
+      padding: 0.5rem;
+      border: 1px solid #333;
+      border-radius: 0.375rem;
+      background: #000000;
+      color: #ffffff;
+    }
+
+    table.dataTable tbody tr {
+      background-color: #000000;
+    }
+
+    .dataTables_info {
+      color: #ffffff !important;
+    }
+
+    #lastDetection {
+      color: #3dfa03;
+    }
+
+    #Total-cars {
+      color: aqua;
+    }
+
+    #cars-hour {
+      color: violet;
+    }
+
+    table.dataTable tbody tr.info-row {
+      background-color: rgba(134, 229, 248, 0.1) !important;
+    }
+
+    table.dataTable tbody tr.error-row {
+      background-color: rgba(236, 29, 29, 0.575) !important;
+    }
+
+    table.dataTable tbody tr.fatal-row {
+      background-color: rgba(177, 149, 241, 0.795) !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="display: flex; align-items: center; gap: 1rem; position: relative; margin-bottom: 0.5rem">
+      <img src="../static/assets/images/lear-logo.png"
+        style="height: 50px; position: absolute; left: 0;background: white;margin-bottom: 0.5rem"  alt="lear-logo"/>
+      <h1 style="margin: 0; text-align: center; width: 100%;">PUI 1 Dashboard</h1>
+    </div>
+    <div class="vehicle-stats" id="vehicle-stats">
+      <div class="last-detection">
+        Last Detection:
+        <span id="lastDetection">
+          {% if last_vehicle_time %} {{ last_vehicle_time.strftime('%Y/%m/%d
+          %H:%M:%S') }} {% else %} No vehicles detected yet {% endif %}
+        </span>
+      </div>
+      <div class="last-detection">
+        Time since last detection: <span id="timer">Calculating...</span>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card info">
+        <div class="stat-title">Total cars <i class="fa-solid fa-car"></i></div>
+        <div class="stat-value" id="Total-cars">{{ total_vehicles }}</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-title">Cars this hour <i class="fa-regular fa-clock"></i></div>
+        <div class="stat-value" id="cars-hour">{{ current_hour_vehicles }}</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-title">Info Logs <i class="fa-solid fa-circle-info"></i></div>
+        <div class="stat-value" id="INFO">{{ counts['INFO'] }}</div>
+      </div>
+      <div class="stat-card error">
+        <div class="stat-title">Error Logs <i class="fa-solid fa-exclamation"></i></div>
+        <div class="stat-value" id="ERROR">{{ counts['ERROR'] }}</div>
+      </div>
+      <div class="stat-card fatal">
+        <div class="stat-title">Fatal Logs <i class="fa-solid fa-circle-exclamation"></i></div>
+        <div class="stat-value" id="FATAL">{{ counts['FATAL'] }}</div>
+      </div>
+    </div>
+    <div class="logs-section">
+      <table id="logsTable" class="display" style="width: 100%">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Type</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr class="{{ log.type.lower() }}-row">
+            <td>{{ log.timestamp }}</td>
+            <td>
+              <span class="log-type {{ log.type.lower() }}">{{ log.type }}</span>
+            </td>
+            <td>{{ log.message }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+    <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='assets/js/datatables.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='assets/fontawesome/fontawesome-free-6.4.2-web/js/all.js') }}"></script>
+  <script>
+    let table;
+    function updateTimer() {
+      const lastDetectionElement = document.getElementById("lastDetection");
+      const lastDetectionText = lastDetectionElement.textContent.trim();
+
+      if (lastDetectionText === "No vehicles detected yet") {
+        document.getElementById("timer").textContent = "N/A";
+        return;
+      }
+
+      const lastDetectionTime = Date.parse(lastDetectionText);
+      if (!lastDetectionTime) return;
+
+      const timeDiff = Date.now() - lastDetectionTime;
+      const minutes = Math.floor(timeDiff / 60000);
+
+      document.getElementById("timer").textContent = `${minutes} minutes ago`;
+      if (minutes >= 8) {
+        document.getElementById("vehicle-stats").style.background = 'red';
+        document.getElementById("timer").style.color = 'black';
+      } else {
+        document.getElementById("timer").style.color = '#4caf50';
+        document.getElementById("vehicle-stats").style.background = 'black';
+      }
+    }
+    function refreshData() {
+      $.get("/get-updates", function (data) {
+        Object.keys(data.counts).forEach((key) => {
+          $(`.stat-value:contains('${key}')`).text(data.counts[key]);
+        });
+        $("#Total-cars").text(data.total_vehicles);
+        $("#cars-hour").text(data.current_hour_vehicles);
+        $("#lastDetection").text(
+          data.last_vehicle_time || "No vehicles detected yet"
+        );
+        $("#FATAL").text(data.counts.FATAL);
+        $("#ERROR").text(data.counts.ERROR);
+        $("#INFO").text(data.counts.INFO);
+
+        table.clear();
+        table.rows.add(
+          data.logs.map((log) => {
+            const row = [
+              log.timestamp,
+              `<span class="log-type ${log.type.toLowerCase()}">${log.type}</span>`,
+              log.message,
+            ];
+            row.DT_RowClass = `${log.type.toLowerCase()}-row`;
+            return row;
+          }
+          ));
+        table.draw();
+        updateTimer();
+      });
+    }
+    $(document).ready(function () {
+      table = $("#logsTable").DataTable({
+        order: [[0, "desc"]],
+        paging: false,
+        sorting: false,
+        searching: false,
+        language: {
+          search: "Search logs:",
+          lengthMenu: "Show _MENU_ entries",
+        },
+        columnDefs: [
+          {
+            targets: 1,
+            width: "100px",
+          },
+        ],
+      });
+      setInterval(refreshData, 300);
+      setInterval(updateTimer, 3000);
+    });
+  </script>
+</body>
+</html>
