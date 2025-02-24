@@ -2,11 +2,8 @@ import logging
 import os
 import re
 from datetime import datetime
-from queue import Queue
 
-from flask import Flask, render_template, jsonify, Response
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from flask import Flask, render_template, jsonify
 
 LOG_DIR = 'logs'
 if not os.path.exists(LOG_DIR):
@@ -42,15 +39,6 @@ def parse_vehicle_count(message):
     return int(match.group(1)) if match else 0.
 
 
-def init_watcher():
-    """
-    init the file_oserver and the event_handler the two global var if not already initialized
-    """
-    global file_observer, event_handler
-    if file_observer is None:
-        logging.info("Initializing file watcher")
-        file_observer, event_handler = setup_file_watcher()
-
 
 def get_log():
     """
@@ -68,7 +56,8 @@ def get_log():
     logs = []
     log_data = LogData()
     try:
-        with open("log.txt", "r", encoding='utf-8') as file:
+        file = open("log.txt", "r", encoding='utf-8')
+        try:
             for line in file:
                 match = re.match(pattern, line)
                 if match:
@@ -106,6 +95,8 @@ def get_log():
                             'type': log_type,
                             'message': message
                         })
+        finally:
+            file.close()
         logs.reverse()
     except FileNotFoundError:
         logging.error("Log file 'log.txt' not found")
@@ -114,53 +105,9 @@ def get_log():
     return counts, logs, log_data
 
 
-class MyHandler(FileSystemEventHandler):
-    def __init__(self):
-        super().__init__()
-        self.clients = set()
-
-    def on_modified(self, event):
-        if event.src_path.endswith('log.txt'):
-            for client in list(self.clients):
-                try:
-                    client.put("update")
-                except Exception as e:
-                    logging.error(f"Error notifying client: {str(e)}")
-                    self.clients.remove(client)
-
-
-def setup_file_watcher():
-    observer = Observer()
-    event_handler = MyHandler()
-    observer.schedule(event_handler, path='.', recursive=False)
-    observer.start()
-    return observer, event_handler
-
-
-file_observer = None
-event_handler = None
-
-
-@app.route('/stream')
-def stream():
-    init_watcher()
-
-    def event_stream():
-        queue = Queue()
-        event_handler.clients.add(queue)
-        try:
-            while True:
-                message = queue.get()
-                yield f"data: {message}\n\n"
-        finally:
-            event_handler.clients.remove(queue)
-
-    return Response(event_stream(), mimetype="text/event-stream")
-
-
 @app.route('/get-updates')
 def get_updates():
-    init_watcher()
+    #   init_watcher()
     counts, logs, log_data = get_log()
     return jsonify({
         'counts': counts,
@@ -175,9 +122,6 @@ def get_updates():
 
 @app.route('/')
 def dashboard():
-    global file_observer, event_handler
-    if file_observer is None:
-        file_observer, event_handler = setup_file_watcher()
     counts, logs, log_data = get_log()
     return render_template('dash.html',
                            counts=counts,
@@ -190,7 +134,6 @@ def dashboard():
 
 if __name__ == '__main__':
     try:
-        init_watcher()
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -199,10 +142,10 @@ if __name__ == '__main__':
                 logging.StreamHandler()
             ]
         )
-        app.run(debug=True,
-                host='0.0.0.0'
+        logging.getLogger('werkzeug').disabled = True
+        app.run(debug=False,
+                host='0.0.0.0',
                 )
+
     finally:
-        if file_observer:
-            file_observer.stop()
-            file_observer.join()
+        print("problem ")
