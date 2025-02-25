@@ -5,10 +5,6 @@ from datetime import datetime
 
 from flask import Flask, render_template, jsonify
 
-LOG_DIR = 'logs'
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-
 app = Flask(__name__, static_folder='static')
 
 
@@ -123,6 +119,7 @@ def get_updates():
 @app.route('/')
 def dashboard():
     counts, logs, log_data = get_log()
+    logging.info(f"Rendering dashboard with {len(logs)} log entries")
     return render_template('dash.html',
                            counts=counts,
                            logs=logs,
@@ -138,14 +135,15 @@ if __name__ == '__main__':
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
-                logging.FileHandler(os.path.join(LOG_DIR, 'app.log')),
                 logging.StreamHandler()
             ]
         )
+        logging.info("Starting the Dash")
         logging.getLogger('werkzeug').disabled = True
         app.run(debug=False,
                 host='0.0.0.0',
                 )
-
+    except Exception as e:
+        logging.error(f"Application failed to start: {str(e)}")
     finally:
-        print("problem ")
+        logging.info("Application shutting down")
