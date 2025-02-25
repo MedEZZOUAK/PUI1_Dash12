@@ -23,6 +23,7 @@ class LogData:
     """
 
     def __init__(self):
+        self.id_counter=0
         self.total_vehicles = 0
         self.last_vehicle_time = None
         self.current_hour_vehicles = 0
@@ -66,6 +67,8 @@ def get_log():
                     log_type = match.group(2)
                     message = line[match.end():].strip()
                     current_time = datetime.strptime(timestamp, '%Y/%m/%d %H:%M:%S')
+                    log_id=log_data.id_counter +1
+                    log_data.id_counter =log_id
 
                     if log_type == "INFO" and "Nombre de vehicules =" in message:
                         vehicle_count = parse_vehicle_count(message)
@@ -87,14 +90,16 @@ def get_log():
                             'type': log_type,
                             'message': message,
                             'hour': current_time.strftime('%Y-%m-%d %H:00'),
-                            'vehicle_count': vehicle_count
+                            'vehicle_count': vehicle_count,
+                            'id' : log_id
                         })
                     elif log_type in ["ERROR", "FATAL"]:
                         counts[log_type] += 1
                         logs.append({
                             'timestamp': timestamp,
                             'type': log_type,
-                            'message': message
+                            'message': message,
+                            'id': log_id
                         })
         finally:
             file.close()
@@ -144,7 +149,7 @@ if __name__ == '__main__':
             ]
         )
         logging.info("Starting the Dash")
-        logging.getLogger('werkzeug').disabled = True
+       # logging.getLogger('werkzeug').disabled = True
         app.run(debug=False,
                 host='0.0.0.0',
                 )

@@ -229,11 +229,22 @@
       </table>
     </div>
   </div>
+
+  <audio id="fatalSound" src="{{ url_for('static', filename='assets/MP3/FATAL.mp3') }}" preload="auto"></audio>
+  <audio id="errorSound" src="{{ url_for('static', filename='assets/MP3/ERROR.mp3') }}" preload="auto"></audio>
     <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
   <script src="{{ url_for('static', filename='assets/js/datatables.min.js') }}"></script>
   <script src="{{ url_for('static', filename='assets/fontawesome/fontawesome-free-6.4.2-web/js/all.js') }}"></script>
   <script>
     let table;
+    let lastLogId = 0;
+    function playSound(logType) {
+      if (logType === "Fatal") {
+        document.getElementById("fatalSound").play();
+      } else if (logType === "Error") {
+        document.getElementById("errorSound").play();
+      }
+    }
     function updateTimer() {
       const lastDetectionElement = document.getElementById("lastDetection");
       const lastDetectionText = lastDetectionElement.textContent.trim();
@@ -271,8 +282,20 @@
         $("#FATAL").text(data.counts.FATAL);
         $("#ERROR").text(data.counts.ERROR);
         $("#INFO").text(data.counts.INFO);
-
+        const newLogs = data.logs.filter(log => log.id > lastLogId);
+        newLogs.forEach(log => {
+          if (log.type === "FATAL") {
+            console.log("New Fatal Log")
+            playSound("Fatal")
+          } else if (log.type === "ERROR") {
+            console.log("New Error Log");
+            playSound("Error")
+          }
+        });
         table.clear();
+        if (newLogs.length > 0) {
+            lastLogId = Math.max(...newLogs.map(log => log.id));
+        }
         table.rows.add(
           data.logs.map((log) => {
             const row = [
@@ -305,7 +328,7 @@
           },
         ],
       });
-      setInterval(refreshData, 500);
+      setInterval(refreshData, 6000);
       setInterval(updateTimer, 2000);
     });
   </script>
