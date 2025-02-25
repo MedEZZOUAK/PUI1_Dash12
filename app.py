@@ -1,11 +1,16 @@
+import configparser
 import logging
 import os
 import re
 from datetime import datetime
 
 from flask import Flask, render_template, jsonify
-
+def load_config():
+    config=configparser.ConfigParser()
+    config.read('config.ini')
+    return config['DEFAULT']
 app = Flask(__name__, static_folder='static')
+app_config=load_config()
 
 
 class LogData:
@@ -52,7 +57,7 @@ def get_log():
     logs = []
     log_data = LogData()
     try:
-        file = open("log.txt", "r", encoding='utf-8')
+        file = open(app_config['LOG_FILE_PATH'], "r", encoding='utf-8')
         try:
             for line in file:
                 match = re.match(pattern, line)
